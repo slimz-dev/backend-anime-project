@@ -6,7 +6,7 @@ const server = http.createServer(app);
 // const server = https.createServer(app);
 const { Server } = require('socket.io');
 const bodyParser = require('body-parser');
-// const mongoose = require('./src/config/db');
+const mongoose = require('./src/config/db');
 // const io = new Server(server, {
 // 	cors: {
 // 		origin: process.env.FE_URL,
@@ -16,8 +16,8 @@ const bodyParser = require('body-parser');
 
 // exports.io = io;
 // const socketHandler = require('./socket');
-//connect db
-// mongoose.connect();
+// connect db
+mongoose.connect();
 
 //HTTP request
 // app.use(morgan('combined'));
