@@ -7,6 +7,14 @@ const server = http.createServer(app);
 const { Server } = require('socket.io');
 const bodyParser = require('body-parser');
 const mongoose = require('./src/config/db');
+const groupRoutes = require('./src/api/routes/UserGroup');
+const userRoutes = require('./src/api/routes/User');
+const movieRoutes = require('./src/api/routes/Movie');
+const typeRoutes = require('./src/api/routes/Type');
+const categoryRoutes = require('./src/api/routes/Category');
+const episodeRoutes = require('./src/api/routes/Episode');
+const seasonRoutes = require('./src/api/routes/Season');
+const levelRoutes = require('./src/api/routes/Level');
 // const io = new Server(server, {
 // 	cors: {
 // 		origin: process.env.FE_URL,
@@ -35,6 +43,15 @@ app.use((req, res, next) => {
 	}
 	next();
 });
+
+app.use('/api/users', userRoutes);
+app.use('/api/movies', movieRoutes);
+app.use('/api/types', typeRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/episodes', episodeRoutes);
+app.use('/api/seasons', seasonRoutes);
+app.use('/api/levels', levelRoutes);
 
 app.get('/', (req, res, next) => {
 	res.status(200);

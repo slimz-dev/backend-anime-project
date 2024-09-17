@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const movieSchema = mongoose.Schema({
+const seasonSchema = mongoose.Schema({
 	_id: { type: mongoose.Schema.Types.ObjectId },
 	name: { type: String },
 	list: [
@@ -10,4 +10,4 @@ const movieSchema = mongoose.Schema({
 	],
 });
 
-module.exports = mongoose.model('Movie', movieSchema);
+module.exports = mongoose.model('Season', seasonSchema);

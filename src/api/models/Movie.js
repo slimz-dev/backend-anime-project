@@ -1,22 +1,24 @@
 const mongoose = require('mongoose');
 const movieSchema = mongoose.Schema({
 	_id: { type: mongoose.Schema.Types.ObjectId },
-	name: { type: String },
-	otherName: { type: String },
-	poster: { type: String },
-	picture: { type: String },
-	nameImg: { type: String },
-	description: { type: String },
-	categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
-	type: { type: mongoose.Schema.Types.ObjectId, ref: 'Type' },
+	movieName: { type: String, required: true },
+	otherName: { type: String, required: true },
+	poster: { type: String, required: true },
+	picture: { type: String, required: true },
+	nameImg: { type: String, required: true },
+	description: [{ type: String, required: true }],
+	categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true }],
+	type: { type: mongoose.Schema.Types.ObjectId, ref: 'Type', required: true },
 	newEpisode: { type: mongoose.Schema.Types.ObjectId, ref: 'Episode' },
 	update: [{ type: Number }],
-	otherInfo: { release: { type: Number }, total: { type: Number } },
-	seasons: { type: mongoose.Schema.Types.ObjectId, ref: 'Season' },
-	rating: { totalUser: { type: Number }, totalStar: { type: Number } },
+	otherInfo: {
+		release: { type: Number, required: true },
+		total: { type: Number, required: true },
+	},
+	rating: { totalUser: { type: Number, default: 0 }, totalStar: { type: Number, default: 0 } },
 	releasedDate: { type: Date, default: Date.now() },
 	isReleased: { type: Boolean, default: false },
-	watchTime: { type: Number },
+	watchTime: { type: Number, default: 0 },
 });
 
 module.exports = mongoose.model('Movie', movieSchema);
