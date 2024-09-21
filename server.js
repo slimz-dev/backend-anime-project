@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const app = express();
 const http = require('http');
+const ngrok = require('@ngrok/ngrok');
 const server = http.createServer(app);
 // const server = https.createServer(app);
 const { Server } = require('socket.io');
@@ -65,5 +66,7 @@ app.get('/', (req, res, next) => {
 server.listen(process.env.PORT || 3001, () => {
 	console.log(`Example app listening on port ${process.env.PORT || 3001}`);
 });
+// ngrok.connect({ addr: 3001, authtoken_from_env: true })
+// 	.then(listener => console.log(`Ingress established at: ${listener.url()}`));
 
 module.exports = app;

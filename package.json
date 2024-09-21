@@ -1,5 +1,6 @@
 {
 	"dependencies": {
+		"@ngrok/ngrok": "^1.4.1",
 		"bcrypt": "^5.1.1",
 		"body-parser": "^1.20.3",
 		"cloudinary": "^2.4.0",
@@ -15,9 +16,8 @@
 	"name": "backend_anime_project",
 	"version": "1.0.0",
 	"main": "server.js",
-	"devDependencies": {},
 	"scripts": {
-		"start": "nodemon server.js",
+		"start": " nodemon server.js",
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"vercel-build": "echo hello"
 	},

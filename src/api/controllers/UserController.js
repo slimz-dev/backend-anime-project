@@ -10,23 +10,25 @@ require('dotenv').config();
 
 exports.createUser = (req, res, next) => {
 	const { username, password, name } = req.body;
-	User.find({ username: username })
+	User.findOne({ username: username })
 		.then((user) => {
-			if (user.length === 0 && username && password && name) {
+			if (!user && username && password && name) {
 				//ENCODE password
 				bcrypt.hash(password, 10, (err, hash) => {
 					if (err) {
 						return res.status(500).json({
-							error: { message: err.message },
+							flag: 'error',
+							data: null,
+							message: err.message,
 						});
 					} else {
-						UserGroup.find({ name: process.env.DEFAULT_ROLE_NAME }).then((group) => {
+						UserGroup.findOne({ name: process.env.DEFAULT_ROLE_NAME }).then((group) => {
 							const users = new User({
 								_id: new mongoose.Types.ObjectId().toString(),
 								name,
 								username,
 								password: hash,
-								role: group[0]._id,
+								role: group._id,
 							});
 							users.save().then((result) => {
 								const notification = new Notification({
@@ -34,27 +36,39 @@ exports.createUser = (req, res, next) => {
 									to: result._id,
 								});
 								notification.save();
-								return res.status(201).json({ data: result });
+								return res.status(201).json({
+									flag: 'success',
+									data: result,
+									message: 'Successfully created',
+								});
 							});
 						});
 					}
 				});
 			} else {
-				if (user.length === 1) {
+				if (user) {
 					return res.status(409).json({
-						error: { message: 'Existed' },
+						flag: 'error',
+						data: null,
+						message: 'User already exists',
 					});
 				} else if (!password) {
-					return res.status(422).json({
-						error: { message: 'Password required' },
+					return res.status(400).json({
+						flag: 'error',
+						data: null,
+						message: 'Password is required',
 					});
 				} else if (!name) {
-					return res.status(422).json({
-						error: { message: 'name required' },
+					return res.status(400).json({
+						flag: 'error',
+						data: null,
+						message: 'Name is required',
 					});
 				} else {
-					return res.status(422).json({
-						error: { message: 'username required' },
+					return res.status(400).json({
+						flag: 'error',
+						data: null,
+						message: 'Username is required',
 					});
 				}
 			}
@@ -75,6 +89,7 @@ exports.getTotalUser = (req, res, next) => {
 		.then((users) => {
 			return res.status(200).json({
 				data: users,
+				length: users.length,
 			});
 		})
 		.catch((err) => {
@@ -88,89 +103,185 @@ exports.getTotalUser = (req, res, next) => {
 
 exports.deleteUser = (req, res, next) => {
 	const userID = req.params.userID;
-	User.find({ _id: userID })
+	User.findOne({ _id: userID })
 		.then((user) => {
-			if (user.length) {
+			if (user) {
 				User.deleteOne({ _id: userID })
 					.then(() => {
 						return res.status(200).json({
-							success: {
-								message: 'Delete user successfully',
-							},
+							flag: 'success',
+							data: null,
+							message: 'Delete user successfully',
 						});
 					})
 					.catch((err) => {
-						return res.status(403).json({
-							error: {
-								message: err.message,
-							},
+						return res.status(500).json({
+							flag: 'error',
+							data: null,
+							message: err.message,
 						});
 					});
 			} else {
-				return res.status(403).json({
-					error: {
-						message: "Can't find any user with that ID",
-					},
+				return res.status(404).json({
+					flag: 'error',
+					data: null,
+					message: 'No user found with this ID',
 				});
 			}
 		})
 		.catch((err) => {
 			return res.status(500).json({
-				error: {
-					message: err.message,
-				},
+				flag: 'error',
+				data: null,
+				message: err.message,
 			});
 		});
 };
 
 exports.loginUser = (req, res, next) => {
-	const { username, password } = req.body;
-	User.find({ username })
+	const { username, password, deviceID } = req.body;
+	User.findOne({ username })
 		.then((user) => {
-			if (user.length && username && password) {
-				bcrypt.compare(password, user[0].password, (err, result) => {
+			if (user && username && password) {
+				bcrypt.compare(password, user.password, async (err, result) => {
 					if (err) {
-						return res.status(401).json({
-							error: { message: err.message },
+						return res.status(500).json({
+							flag: 'error',
+							data: null,
+							message: err.message,
 						});
 					}
 					if (result) {
+						const accessToken = jwt.sign(
+							{
+								userID: user._id,
+							},
+							process.env.ACCESS_TOKEN_SECRET,
+							{
+								expiresIn: '40m',
+							}
+						);
+						const refreshToken = jwt.sign(
+							{
+								userID: user._id,
+							},
+							process.env.REFRESH_TOKEN_SECRET,
+							{
+								expiresIn: '1h',
+							}
+						);
+						// If device already has a refresh token
+						const indexOfDevice = user.loginDevices.findIndex((device) => {
+							return device.deviceID === deviceID;
+						});
+						if (indexOfDevice !== -1) {
+							user.loginDevices.splice(indexOfDevice, 1);
+							await user.save();
+						}
+						// Push the refresh token
+						user.loginDevices.push({
+							deviceID,
+							refreshToken,
+						});
+						await user.save();
 						return res.status(200).json({
-							data: user,
+							flag: 'success',
+							data: {
+								user,
+								accessToken,
+								refreshToken,
+							},
+							message: 'Request successful',
 						});
 					} else {
 						return res.status(401).json({
-							error: {
-								message: 'Wrong password',
-							},
+							flag: 'error',
+							data: null,
+							message: 'Wrong password',
 						});
 					}
 				});
 			} else if (!username) {
 				return res.status(422).json({
-					error: {
-						message: 'Username required',
-					},
+					flag: 'error',
+					data: null,
+					message: 'Username is required',
 				});
 			} else if (!password) {
 				return res.status(422).json({
-					error: {
-						message: 'Password required',
-					},
+					flag: 'error',
+					data: null,
+					message: 'Password is required',
 				});
 			} else {
-				return res.status(401).json({
-					error: {
-						message: 'User not found',
-					},
+				return res.status(404).json({
+					flag: 'error',
+					data: null,
+					message: 'No user found with this username',
 				});
 			}
 		})
 		.catch((err) => {
 			return res.status(500).json({
-				error: {
-					message: err.message,
-				},
+				flag: 'error',
+				data: null,
+				message: err.message,
+			});
+		});
+};
+
+exports.changeUser = (req, res, next) => {
+	const { userID } = req.params;
+	const changeData = req.body;
+	User.findOneAndUpdate({ _id: userID }, changeData, { new: true })
+		.then((user) => {
+			if (user) {
+				return res.status(200).json({
+					flag: 'success',
+					data: user,
+					message: 'User has been updated',
+				});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					data: null,
+					message: 'User does not exist',
+				});
+			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				data: null,
+				message: err.message,
+			});
+		});
+};
+
+exports.getUser = (req, res, next) => {
+	const userID = req.userID;
+	User.findOne({ _id: userID })
+		.select('-loginDevices')
+		.then((user) => {
+			if (user) {
+				return res.status(200).json({
+					flag: 'success',
+					data: user,
+					message: 'Getting user information successfully',
+				});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					data: null,
+					message: 'User not found',
+				});
+			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				data: null,
+				message: err.message,
 			});
 		});
 };
