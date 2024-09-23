@@ -26,12 +26,16 @@ const userSchema = mongoose.Schema({
 	watchTime: { type: Number, default: 0 },
 	balance: { type: Number, default: 0 },
 	power: { type: Number, default: 0 },
-	loginDevices: [
-		{
-			deviceID: { type: String },
-			refreshToken: { type: String },
-		},
-	],
+	loginDevices: {
+		type: [
+			{
+				deviceID: { type: String },
+				deviceName: { type: String },
+				refreshToken: { type: String },
+			},
+		],
+		select: true,
+	},
 });
 
 module.exports = mongoose.model('User', userSchema);

@@ -139,7 +139,7 @@ exports.deleteUser = (req, res, next) => {
 };
 
 exports.loginUser = (req, res, next) => {
-	const { username, password, deviceID } = req.body;
+	const { username, password, deviceID, deviceName } = req.body;
 	User.findOne({ username })
 		.then((user) => {
 			if (user && username && password) {
@@ -181,13 +181,19 @@ exports.loginUser = (req, res, next) => {
 						// Push the refresh token
 						user.loginDevices.push({
 							deviceID,
+							deviceName,
 							refreshToken,
 						});
 						await user.save();
+
+						// Remove the devices from the reponse data
+						const data = user.toJSON();
+						delete data.loginDevices;
+
 						return res.status(200).json({
 							flag: 'success',
-							data: {
-								user,
+							data,
+							meta: {
 								accessToken,
 								refreshToken,
 							},
@@ -260,14 +266,29 @@ exports.changeUser = (req, res, next) => {
 
 exports.getUser = (req, res, next) => {
 	const userID = req.userID;
+	const accessToken = req.accessToken;
+	const { refreshToken } = req.body;
 	User.findOne({ _id: userID })
-		.select('-loginDevices')
 		.then((user) => {
-			if (user) {
+			const hasDevice = user.loginDevices.find((device) => {
+				return device.refreshToken === refreshToken;
+			});
+			const data = user.toJSON();
+			delete data.loginDevices;
+			if (user && hasDevice) {
 				return res.status(200).json({
 					flag: 'success',
-					data: user,
+					data,
+					meta: {
+						accessToken,
+					},
 					message: 'Getting user information successfully',
+				});
+			} else if (hasDevice === undefined) {
+				return res.status(403).json({
+					flag: 'error',
+					data: null,
+					message: 'This device has been removed',
 				});
 			} else {
 				return res.status(404).json({
@@ -276,6 +297,32 @@ exports.getUser = (req, res, next) => {
 					message: 'User not found',
 				});
 			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				data: null,
+				message: err.message,
+			});
+		});
+};
+
+exports.removeDevices = (req, res, next) => {
+	const userID = req.userID;
+	User.findOneAndUpdate({ _id: userID }, { loginDevices: [] }, { new: true })
+		.then((user) => {
+			if (user) {
+				return res.status(200).json({
+					flag: 'success',
+					data: user,
+					message: 'Remove devices successfully',
+				});
+			}
+			return res.status(404).json({
+				flag: 'error',
+				data: [],
+				message: 'User not found',
+			});
 		})
 		.catch((err) => {
 			return res.status(500).json({

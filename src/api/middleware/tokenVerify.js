@@ -7,11 +7,7 @@ module.exports = (req, res, next) => {
 		jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
 			if (err) {
 				if (err instanceof jwt.TokenExpiredError) {
-					return res.status(403).json({
-						flag: 'error',
-						data: null,
-						message: 'Token expired',
-					});
+					next();
 				}
 				return res.status(403).json({
 					flag: 'error',
@@ -20,6 +16,7 @@ module.exports = (req, res, next) => {
 				});
 			}
 			req.userID = decoded.userID;
+			req.accessToken = token;
 			next();
 		});
 	} catch {
