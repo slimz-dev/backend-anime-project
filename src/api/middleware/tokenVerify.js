@@ -8,16 +8,18 @@ module.exports = (req, res, next) => {
 			if (err) {
 				if (err instanceof jwt.TokenExpiredError) {
 					next();
+				} else {
+					return res.status(403).json({
+						flag: 'error',
+						data: null,
+						message: 'Forbidden access',
+					});
 				}
-				return res.status(403).json({
-					flag: 'error',
-					data: null,
-					message: 'Forbidden access',
-				});
+			} else {
+				req.userID = decoded.userID;
+				req.accessToken = token;
+				next();
 			}
-			req.userID = decoded.userID;
-			req.accessToken = token;
-			next();
 		});
 	} catch {
 		(err) => {

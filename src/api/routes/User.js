@@ -5,7 +5,8 @@ const verifyToken = require('../middleware/tokenVerify');
 const refreshToken = require('../middleware/refreshToken');
 
 router.get('/', User.getTotalUser);
-router.post('/', User.createUser);
+router.patch('/', User.changeTotalUser);
+router.post('/register', User.createUser);
 router.post('/login', User.loginUser);
 router.post('/my-info', verifyToken, refreshToken, User.getUser);
 router.delete('/:userID', User.deleteUser);

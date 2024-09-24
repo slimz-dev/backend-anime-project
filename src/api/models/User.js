@@ -14,15 +14,29 @@ const userSchema = mongoose.Schema({
 	phone: { type: String, default: '' },
 	movieFollowed: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
 	movieWatched: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Episode' }],
-	rated: [
-		{
-			fiveStar: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
-			fourStar: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
-			threeStar: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
-			twoStar: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
-			oneStar: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
+	movieRated: {
+		fiveStars: {
+			type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
+			default: [],
 		},
-	],
+		fourStars: {
+			type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
+			default: [],
+		},
+		threeStars: {
+			type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
+			default: [],
+		},
+		twoStars: {
+			type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
+			default: [],
+		},
+		oneStar: {
+			type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
+			default: [],
+		},
+	},
+
 	watchTime: { type: Number, default: 0 },
 	balance: { type: Number, default: 0 },
 	power: { type: Number, default: 0 },

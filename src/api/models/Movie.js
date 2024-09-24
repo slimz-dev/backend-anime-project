@@ -13,12 +13,15 @@ const movieSchema = mongoose.Schema({
 	update: [{ type: Number }],
 	otherInfo: {
 		release: { type: Number, required: true },
-		total: { type: Number, required: true },
+		total: { type: Number },
+		imdb: { type: Number },
+		timeEstimate: { type: Number },
 	},
 	rating: { totalUser: { type: Number, default: 0 }, totalStar: { type: Number, default: 0 } },
 	releasedDate: { type: Date, default: Date.now() },
 	isReleased: { type: Boolean, default: false },
 	watchTime: { type: Number, default: 0 },
+	isCompleted: { type: Boolean, default: false },
 });
 
 module.exports = mongoose.model('Movie', movieSchema);

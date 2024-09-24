@@ -61,6 +61,38 @@ exports.getTotalSeasons = (req, res, next) => {
 		});
 };
 
+exports.removeMovie = (req, res, next) => {
+	const { seasonID } = req.params;
+	const { movieID } = req.body;
+	Season.findOneAndUpdate(
+		{ _id: seasonID },
+		{ $pull: { list: { link: movieID } } },
+		{ new: true }
+	)
+		.then((season) => {
+			if (season) {
+				return res.status(200).json({
+					flag: 'success',
+					data: season,
+					message: 'Remove movie successfully',
+				});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					data: null,
+					message: 'Movie not found',
+				});
+			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				data: null,
+				message: err.message,
+			});
+		});
+};
+
 exports.deleteSeason = (req, res, next) => {
 	const { seasonID } = req.params;
 	Season.deleteOne({ _id: seasonID })

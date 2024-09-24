@@ -4,6 +4,7 @@ const Season = require('../controllers/SeasonController');
 
 router.get('/', Season.getTotalSeasons);
 router.post('/', Season.createSeason);
+router.patch('/:seasonID', Season.removeMovie);
 // router.post('/login', User.loginUser);
 router.delete('/:seasonID', Season.deleteSeason);
 // router.patch('/:groupID', UserGroupController.changeGroup);

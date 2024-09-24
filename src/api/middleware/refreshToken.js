@@ -19,16 +19,16 @@ module.exports = (req, res, next) => {
 					return res.status(403).json({
 						flag: 'error',
 						data: null,
-						message: 'Forbidden access',
+						message: 'Forbidden access, logout user',
 					});
 				}
 				const accessToken = jwt.sign(
 					{
-						userID: user._id,
+						userID: decoded.userID,
 					},
 					process.env.ACCESS_TOKEN_SECRET,
 					{
-						expiresIn: '40m',
+						expiresIn: '30s',
 					}
 				);
 				req.userID = decoded.userID;

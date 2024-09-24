@@ -5,6 +5,7 @@ const validator = require('validator');
 const User = require('../models/User');
 const UserGroup = require('../models/UserGroup');
 const Notification = require('../models/Notification');
+const Level = require('../models/Level');
 const Movie = require('../models/Movie');
 require('dotenv').config();
 
@@ -85,6 +86,7 @@ exports.getTotalUser = (req, res, next) => {
 		.populate('role')
 		.populate('movieFollowed')
 		.populate('movieWatched')
+		.populate({ path: 'level', model: Level })
 		.exec()
 		.then((users) => {
 			return res.status(200).json({
@@ -141,7 +143,14 @@ exports.deleteUser = (req, res, next) => {
 exports.loginUser = (req, res, next) => {
 	const { username, password, deviceID, deviceName } = req.body;
 	User.findOne({ username })
+		.populate('movieWatched')
+		.populate('movieFollowed')
+		.populate('movieRated')
+		.populate({ path: 'level', model: Level })
+		.select('-role')
+		.exec()
 		.then((user) => {
+			console.log(JSON.stringify(user.level, 0, 2));
 			if (user && username && password) {
 				bcrypt.compare(password, user.password, async (err, result) => {
 					if (err) {
@@ -158,7 +167,7 @@ exports.loginUser = (req, res, next) => {
 							},
 							process.env.ACCESS_TOKEN_SECRET,
 							{
-								expiresIn: '40m',
+								expiresIn: '30s',
 							}
 						);
 						const refreshToken = jwt.sign(
@@ -167,7 +176,7 @@ exports.loginUser = (req, res, next) => {
 							},
 							process.env.REFRESH_TOKEN_SECRET,
 							{
-								expiresIn: '1h',
+								expiresIn: '30d',
 							}
 						);
 						// If device already has a refresh token
@@ -189,7 +198,7 @@ exports.loginUser = (req, res, next) => {
 						// Remove the devices from the reponse data
 						const data = user.toJSON();
 						delete data.loginDevices;
-
+						delete data.password;
 						return res.status(200).json({
 							flag: 'success',
 							data,
@@ -264,11 +273,45 @@ exports.changeUser = (req, res, next) => {
 		});
 };
 
+exports.changeTotalUser = (req, res, next) => {
+	const changeData = req.body;
+	User.updateMany({}, changeData, { new: true })
+		.then((users) => {
+			if (users.length !== 0) {
+				return res.status(200).json({
+					flag: 'success',
+					data: users,
+					message: 'All users has been updated',
+				});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					data: null,
+					message: 'Found 0 user',
+				});
+			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				data: null,
+				message: err.message,
+			});
+		});
+};
+
 exports.getUser = (req, res, next) => {
 	const userID = req.userID;
 	const accessToken = req.accessToken;
 	const { refreshToken } = req.body;
 	User.findOne({ _id: userID })
+		.populate('movieWatched')
+		.populate('movieFollowed')
+		.populate('movieRated')
+		.populate({ path: 'level', model: Level })
+		.select('-role')
+		.select('-password')
+		.exec()
 		.then((user) => {
 			const hasDevice = user.loginDevices.find((device) => {
 				return device.refreshToken === refreshToken;
