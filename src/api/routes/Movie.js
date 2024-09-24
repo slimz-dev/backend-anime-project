@@ -12,6 +12,11 @@ router.post(
 	Movie.createMovie
 );
 router.get('/', Movie.getTotalMovies);
+router.patch('/', Movie.patchAllMovies);
+router.get('/update', Movie.getMoviesFromUpdate);
+router.get('/top-rated', Movie.topRatedMovies);
+router.get('/top-watched', Movie.topWatchedMovies);
+router.get('/upcoming', Movie.upcomingMovies);
 router.delete('/', Movie.deleteTotalMovies);
 // router.post('/login', User.loginUser);
 router.delete('/:movieID', Movie.deleteMovie);

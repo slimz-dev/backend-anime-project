@@ -242,3 +242,199 @@ exports.deleteTotalMovies = (req, res, next) => {
 			});
 		});
 };
+
+exports.getMoviesFromUpdate = (req, res, next) => {
+	const { day, completed } = req.query;
+	if (!day || !completed) {
+		return res.status(400).json({
+			flag: 'error',
+			data: null,
+			message: 'Missing query params',
+		});
+	}
+	const updateDay = JSON.parse(day);
+	const isCompleted = JSON.parse(completed);
+	if (typeof isCompleted !== 'boolean' || typeof updateDay !== 'number') {
+		return res.status(400).json({
+			flag: 'error',
+			data: null,
+			message:
+				'Wrong type of param, "day" must be a number and "completed" must be a boolean',
+		});
+	}
+	const stringDay = getEnglishDay(updateDay);
+	Movie.find({ isCompleted: isCompleted, update: { $in: updateDay } })
+		.then((movies) => {
+			if (movies.length !== 0) {
+				return res.status(200).json({
+					flag: 'success',
+					data: {
+						releaseDay: stringDay,
+						list: movies,
+					},
+					meta: {
+						total: movies.length,
+					},
+					message: 'Get total movies successfully',
+				});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					data: null,
+					message: 'Not found any movie',
+				});
+			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				error: {
+					message: err.message,
+				},
+			});
+		});
+};
+
+exports.topRatedMovies = (req, res, next) => {
+	Movie.find({})
+		.sort({ 'rating.totalStar': 1 })
+		.limit(10)
+		.exec()
+		.then((movies) => {
+			if (movies.length !== 0) {
+				return res.status(200).json({
+					flag: 'success',
+					data: movies,
+					meta: {
+						total: movies.length,
+					},
+					message: 'Get top 10 rating movies successfully',
+				});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					data: null,
+					message: 'Not found any movie',
+				});
+			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				error: {
+					message: err.message,
+				},
+			});
+		});
+};
+
+exports.topWatchedMovies = (req, res, next) => {
+	Movie.find({})
+		.sort({ watchTime: 1 })
+		.limit(10)
+		.exec()
+		.then((movies) => {
+			if (movies.length !== 0) {
+				return res.status(200).json({
+					flag: 'success',
+					data: movies,
+					meta: {
+						total: movies.length,
+					},
+					message: 'Get top 10 waching movies successfully',
+				});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					data: null,
+					message: 'Not found any movie',
+				});
+			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				error: {
+					message: err.message,
+				},
+			});
+		});
+};
+
+exports.upcomingMovies = (req, res, next) => {
+	Movie.find({ isReleased: false })
+		.sort({ releasedDate: 1 })
+		.exec()
+		.then((movies) => {
+			return res.status(200).json({
+				flag: 'success',
+				data: movies,
+				meta: {
+					total: movies.length,
+				},
+				message: 'Get upcoming movies successfully',
+			});
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				error: {
+					message: err.message,
+				},
+			});
+		});
+};
+
+exports.patchAllMovies = (req, res, next) => {
+	const data = req.body;
+	Movie.updateMany({}, data, { new: true })
+		.then((update) => {
+			if (update.modifiedCount !== 0) {
+				return res.status(200).json({
+					flag: 'success',
+					message: 'successfully updated',
+					data: movies,
+				});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					message: 'Not found any movie',
+					data: null,
+				});
+			}
+		})
+		.catch((err) => {
+			res.status(500).json({
+				flag: 'error',
+				message: err.message,
+				data: null,
+			});
+		});
+};
+
+const getEnglishDay = (number) => {
+	let stringDay;
+	switch (number) {
+		case 2:
+			stringDay = 'Monday';
+			break;
+		case 3:
+			stringDay = 'Tuesday';
+			break;
+		case 4:
+			stringDay = 'Wednesday';
+			break;
+		case 5:
+			stringDay = 'Thursday';
+			break;
+		case 6:
+			stringDay = 'Friday';
+			break;
+		case 7:
+			stringDay = 'Saturday';
+			break;
+		case 8:
+			stringDay = 'Sunday';
+			break;
+		default:
+			stringDay = 'Not a valid day';
+			break;
+	}
+	return stringDay;
+};
