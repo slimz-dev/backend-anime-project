@@ -24,10 +24,48 @@ function toLowerCaseNonAccentVietnamese(str) {
 	str = str.replace(/\u02C6|\u0306|\u031B/g, ''); // Â, Ê, Ă, Ơ, Ư
 	return str;
 }
+
+async function uploadImagesToCloudinary(imageFiles, cloudinaryFolderPath) {
+	const imagesStorage = {
+		picture: '',
+		poster: '',
+		nameImg: '',
+	};
+	for (const [key, fieldName] of Object.entries(imageFiles)) {
+		let imageID = fieldName[0].fieldname;
+		const result = await new Promise((resolve, reject) => {
+			cloudinary.uploader.upload(
+				fieldName[0].path,
+				{
+					public_id: imageID,
+					folder: cloudinaryFolderPath,
+					overwrite: true,
+				},
+				(err, url) => {
+					if (err) return reject(err);
+					return resolve(url);
+				}
+			);
+		})
+			.then((image) => {
+				imagesStorage[key] = image.secure_url;
+			})
+			.catch((err) => {
+				return res.status(500).json({
+					flag: 'error',
+					message: err.message,
+					data: null,
+				});
+			});
+	}
+	return imagesStorage;
+}
+
 exports.createMovie = async (req, res, next) => {
 	const { seasonName, movieName } = req.body;
 	const cloudinaryFolderName = toLowerCaseNonAccentVietnamese(movieName).replaceAll(' ', '_');
 	const cloudinaryFolderPath = `Kmovie/movies/${cloudinaryFolderName}`;
+	const fileStorage = req.files;
 	Movie.findOne({ name: movieName })
 		.then((movie) => {
 			// Check if movie exists in database
@@ -35,35 +73,10 @@ exports.createMovie = async (req, res, next) => {
 				// Find season relate to that movie
 				Season.findOne({ name: seasonName }).then(async (season) => {
 					// Upload images to cloudinary
-					const movieImage = {
-						picture: '',
-						poster: '',
-						nameImg: '',
-					};
-					for (const [key, fieldName] of Object.entries(req.files)) {
-						let imageID = fieldName[0].fieldname;
-						const result = await new Promise((resolve, reject) => {
-							cloudinary.uploader.upload(
-								fieldName[0].path,
-								{
-									public_id: imageID,
-									folder: cloudinaryFolderPath,
-									overwrite: true,
-								},
-								(err, url) => {
-									if (err) return reject(err);
-									return resolve(url);
-								}
-							);
-						})
-							.then((image) => {
-								movieImage[key] = image.secure_url;
-							})
-							.catch((err) => {
-								console.log(err.message);
-							});
-					}
-
+					const movieImage = await uploadImagesToCloudinary(
+						fileStorage,
+						cloudinaryFolderPath
+					);
 					//Add new movie
 					const newMovie = new Movie({
 						_id: new mongoose.Types.ObjectId().toString(),
@@ -389,7 +402,7 @@ exports.patchAllMovies = (req, res, next) => {
 				return res.status(200).json({
 					flag: 'success',
 					message: 'successfully updated',
-					data: movies,
+					data: null,
 				});
 			} else {
 				return res.status(404).json({
@@ -404,6 +417,68 @@ exports.patchAllMovies = (req, res, next) => {
 				flag: 'error',
 				message: err.message,
 				data: null,
+			});
+		});
+};
+
+exports.patchMovie = (req, res, next) => {
+	const { movieID } = req.params;
+	const data = req.body;
+	console.log(data);
+	Movie.findOneAndUpdate({ _id: movieID }, data, { new: true })
+		.then((movie) => {
+			if (movie) {
+				return res.status(200).json({
+					flag: 'success',
+					message: 'successfully updated',
+					data: movie,
+				});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					message: 'Not found any movie',
+					data: null,
+				});
+			}
+		})
+		.catch((err) => {
+			res.status(500).json({
+				flag: 'error',
+				message: err.message,
+				data: null,
+			});
+		});
+};
+
+exports.hotestMovie = (req, res, next) => {
+	Movie.find({})
+		.sort({ watchTime: 1 })
+		.limit(1)
+		.populate('categories')
+		.exec()
+		.then((movies) => {
+			if (movies.length !== 0) {
+				return res.status(200).json({
+					flag: 'success',
+					data: movies,
+					meta: {
+						total: movies.length,
+					},
+					message: 'Get hottest movie successfully',
+				});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					data: null,
+					message: 'Not found any movie',
+				});
+			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				error: {
+					message: err.message,
+				},
 			});
 		});
 };

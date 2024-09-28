@@ -17,7 +17,8 @@ const storage = multer.diskStorage({
 	},
 });
 
-exports.upload = multer({ storage: storage });
+const upload = multer({ storage: storage, limits: { fileSize: 2 * 1024 * 1024 * 1024 } });
+exports.upload = upload;
 const movieRoutes = require('./src/api/routes/Movie');
 const typeRoutes = require('./src/api/routes/Type');
 const categoryRoutes = require('./src/api/routes/Category');
@@ -40,8 +41,9 @@ mongoose.connect();
 // app.use(morgan('combined'));
 
 //Parser
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
-app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '2gb', extended: true }));
+app.use(bodyParser.json({ limit: '2gb' }));
+app.use(upload.none());
 app.use((req, res, next) => {
 	res.header('Access-Control-Allow-Origin', '*');
 	res.header('Access-Control-Allow-Headers', '*');
