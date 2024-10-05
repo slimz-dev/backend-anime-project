@@ -23,5 +23,6 @@ router.delete('/', Movie.deleteTotalMovies);
 // router.post('/login', User.loginUser);
 router.delete('/:movieID', Movie.deleteMovie);
 router.patch('/:movieID', Movie.patchMovie);
+router.get('/:movieID', Movie.getMovie);
 // router.patch('/:groupID', UserGroupController.changeGroup);
 module.exports = router;

@@ -194,6 +194,33 @@ exports.getTotalMovies = (req, res, next) => {
 		});
 };
 
+exports.getMovie = (req, res, next) => {
+	const { movieID } = req.params;
+	Movie.findOne({ _id: movieID })
+		.then((movie) => {
+			if (movie) {
+				return res.status(200).json({
+					flag: 'success',
+					data: movie,
+					message: 'Get total movies successfully',
+				});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					data: null,
+					message: 'Not found any movie',
+				});
+			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				data: null,
+				message: err.message,
+			});
+		});
+};
+
 exports.deleteMovie = (req, res, next) => {
 	const { movieID } = req.params;
 	Movie.deleteOne({ _id: movieID })
@@ -309,6 +336,7 @@ exports.getMoviesFromUpdate = (req, res, next) => {
 
 exports.topRatedMovies = (req, res, next) => {
 	Movie.find({})
+		.populate('categories')
 		.sort({ 'rating.totalStar': 1 })
 		.limit(10)
 		.exec()
@@ -341,6 +369,7 @@ exports.topRatedMovies = (req, res, next) => {
 
 exports.topWatchedMovies = (req, res, next) => {
 	Movie.find({})
+		.populate('categories')
 		.sort({ watchTime: 1 })
 		.limit(10)
 		.exec()
@@ -373,6 +402,7 @@ exports.topWatchedMovies = (req, res, next) => {
 
 exports.upcomingMovies = (req, res, next) => {
 	Movie.find({ isReleased: false })
+		.populate('categories')
 		.sort({ releasedDate: 1 })
 		.exec()
 		.then((movies) => {

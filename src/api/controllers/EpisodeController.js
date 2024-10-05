@@ -6,6 +6,7 @@ const Movie = require('../models/Movie');
 const Episode = require('../models/Episode');
 const cloudinary = require('../../utils/cloudinary');
 const path = require('path');
+const fs = require('fs-extra');
 const ffmpeg = require('fluent-ffmpeg');
 require('dotenv').config();
 
@@ -24,67 +25,227 @@ function toLowerCaseNonAccentVietnamese(str) {
 	return str;
 }
 
-function compressVideo(inputFilePath, outputPath) {
+async function appendMainFile(filePath, link, videoConfig) {
+	const content = `#EXT-X-STREAM-INF:BANDWIDTH=${videoConfig.bitrate.replace(
+		'k',
+		'000'
+	)},RESOLUTION=${videoConfig.resolution}\n${link}\n`;
+	try {
+		fs.appendFileSync(filePath, content);
+		console.log('Content appended for main file successfully.');
+	} catch (err) {
+		throw err;
+	}
+}
+
+async function deleteLocal(dir) {
+	try {
+		const tsFiles = await fs.readdir(dir);
+		await Promise.all(
+			tsFiles
+				.filter((file) => file.endsWith('.ts'))
+				.map(async (file) => {
+					return fs.remove(path.join(dir, file));
+				})
+		);
+		console.log('delele all local .ts files successfully ');
+	} catch (err) {
+		throw err;
+	}
+}
+
+async function writeToM3u8File(m3u8File, segmentLinks) {
+	try {
+		// Read the file asynchronously
+		const data = await fs.readFile(m3u8File, 'utf8');
+		let updatedData = data;
+
+		// Replace each segment name with its corresponding link
+		segmentLinks.forEach((link) => {
+			const splitLink = link.split('/');
+			const segmentName = splitLink[splitLink.length - 1];
+			updatedData = updatedData.replace(segmentName, link);
+		});
+		// Write the updated content back to the file only once after all replacements
+		await fs.writeFile(m3u8File, updatedData);
+		console.log('Replace to actual link in m3u8 file successfully');
+		return m3u8File; // Return the file path after writing
+	} catch (err) {
+		throw err;
+	}
+}
+
+async function uploadToCloudinary(episodePath, cloudinaryFolderPath, segmentName, type) {
 	return new Promise((resolve, reject) => {
-		ffmpeg(inputFilePath)
-			.videoCodec('libx265') // Use H.265 codec for better compression
-			.outputOptions([
-				'-crf 28', // Adjust CRF for file size/quality balance
-				'-preset slow', // Slower preset for better compression
-			])
-			.on('end', () => {
-				console.log('Compression finished');
-				resolve(outputPath); // Return the output file path after compression
-			})
-			.on('error', (err) => {
-				console.error('Error during compression', err);
-				reject(err);
-			})
-			.save(outputPath); // Save compressed video to the output folder
+		cloudinary.uploader.upload(
+			episodePath,
+			{
+				resource_type: type ? type : 'video',
+				public_id: segmentName,
+				folder: cloudinaryFolderPath,
+				overwrite: true,
+			},
+			(error, result) => {
+				if (error) {
+					reject(error); // Reject the promise with the error
+				} else {
+					console.log('Uploaded to cloudinary');
+					resolve(result.secure_url); // Resolve the promise with the URL
+				}
+			}
+		);
 	});
 }
 
-function uploadToCloudinary(fileName, episodePath, cloudinaryFolderPath) {
-	return cloudinary.uploader.upload(
-		episodePath,
-		{
-			resource_type: 'video',
-			public_id: fileName,
-			folder: cloudinaryFolderPath,
-			overwrite: true,
-		},
-		(error, result) => {
-			if (error) {
-				return res.status(500).json({
-					flag: 'error',
-					message: error.message,
-					data: null,
-				});
-			} else {
-				return result;
-			}
+async function splitSegmentsAndUpload(inputPath, outputName, cloudinaryPathToResolution) {
+	const outputDir = path.dirname(inputPath);
+	const m3u8Path = path.join(outputDir, `${outputName}.m3u8`);
+	const segmentPath = path.join(outputDir, `segment%03d.ts`);
+	return new Promise(async (resolve, reject) => {
+		ffmpeg(inputPath)
+			.outputOptions([
+				'-c:v copy', // Copy video codec
+				'-c:a aac', // Encode audio to AAC
+				'-bsf:a aac_adtstoasc', // Bitstream filter for AAC
+				'-start_number 0', // Start segment numbering at 0
+				'-hls_time 3', // Segment duration of 3 seconds
+				'-hls_list_size 0', // Unlimited entries in the playlist
+				`-hls_segment_filename ${segmentPath}`, // Segment filename pattern
+				'-f hls', // Output format HLS
+			])
+			.output(m3u8Path) // Output .m3u8 file
+			.on('end', async () => {
+				console.log('HLS conversion completed.');
+				const tsFiles = await fs.readdir(outputDir);
+				const segmentLinks = [];
+				await Promise.all(
+					tsFiles
+						.filter((file) => file.endsWith('.ts'))
+						.map(async (file) => {
+							const pathToSegment = path.join(outputDir, file);
+							const segmentName = file.split('.')[0];
+							const link = await uploadToCloudinary(
+								pathToSegment,
+								cloudinaryPathToResolution,
+								segmentName
+							);
+							return segmentLinks.push(link);
+						})
+				);
+
+				const m3u8 = await writeToM3u8File(m3u8Path, segmentLinks);
+				const result = await uploadToCloudinary(
+					m3u8,
+					cloudinaryPathToResolution,
+					outputName,
+					'raw'
+				);
+				await deleteLocal(outputDir);
+				resolve(result);
+			})
+			.on('error', (err) => {
+				throw err;
+			})
+			.run();
+	});
+}
+
+function convertVideo(inputPath, outputPath, quality) {
+	return new Promise((resolve, reject) => {
+		ffmpeg(inputPath)
+			.output(outputPath)
+			.videoCodec('libx264')
+			.videoBitrate(quality.bitrate)
+			.audioCodec('copy')
+			.size(quality.resolution)
+			.outputOptions(['-crf 18']) // Resolution like 360p, 480p, 720p, 1080p
+			.on('progress', (progress) => {
+				console.log(`Processing: for ${quality.resolution} ${progress.frames} frames done`);
+			})
+			.on('end', () => {
+				console.log(`Finished processing: ${quality.resolution}`);
+				resolve();
+			})
+			.on('error', (err) => {
+				throw err;
+			})
+			.run();
+	});
+}
+
+async function createQualities(inputFilePath, fileName) {
+	try {
+		const qualityFiles = [];
+		const qualities = [
+			{ name: '360p', resolution: '640x360', bitrate: '1000k' },
+			{ name: '480p', resolution: '854x480', bitrate: '1500k' },
+		];
+		for (const quality of qualities) {
+			const outputResolutionPath = path.join(
+				path.dirname(inputFilePath),
+				`${fileName}_${quality.name}.mp4`
+			);
+			await convertVideo(inputFilePath, outputResolutionPath, quality);
+			qualityFiles.push({
+				path: outputResolutionPath,
+				resolution: quality.resolution,
+				bitrate: quality.bitrate,
+				name: quality.name,
+			});
 		}
-	);
+		qualityFiles.push({
+			name: '1080p',
+			path: inputFilePath,
+			resolution: '1920x1080',
+			bitrate: '5000k',
+		});
+		return qualityFiles;
+	} catch (err) {
+		throw err;
+	}
+}
+
+async function createMainFile(pathToMainFile) {
+	try {
+		const dir = path.dirname(pathToMainFile);
+		const mainFilePath = path.join(dir, 'main.m3u8');
+		const content = `#EXTM3U\n#EXT-X-VERSION:3\n\n`;
+		await fs.promises.writeFile(mainFilePath, content, { flag: 'w' });
+		console.log('main file created');
+		return mainFilePath;
+	} catch (err) {
+		throw err;
+	}
 }
 
 exports.createEpisode = (req, res, next) => {
 	const { movieID, episodeName, movieName } = req.body;
-	const cloudinaryFolderName = toLowerCaseNonAccentVietnamese(movieName).replaceAll(' ', '_');
-	const cloudinaryFolderPath = `Kmovie/movies/${cloudinaryFolderName}`;
+	const movieNameToLowerCase = toLowerCaseNonAccentVietnamese(movieName).replaceAll(' ', '_');
+	const cloudinaryPathToMovie = `Kmovie/movies/${movieNameToLowerCase}`;
 	const episodePath = req.file.path;
-	const compressedPath = path.join(path.dirname(episodePath), `compressed_${fileName}.mp4`);
-	const fileName = `${cloudinaryFolderName}_episode_${episodeName}`;
+	const cloudinaryEpisodeName = `${movieNameToLowerCase}_episode_${episodeName}`;
+	const cloudinaryPathToEpisode = `${cloudinaryPathToMovie}/${cloudinaryEpisodeName}`;
 	Episode.findOne({ $and: [{ movie: movieID, episodeName }] })
 		.then(async (episode) => {
 			try {
-				// Compress the video
-				const outputFilePath = await compressVideo(episodePath, compressedPath);
-				const file = await uploadToCloudinary(
-					fileName,
-					outputFilePath,
-					cloudinaryFolderPath
+				const mainFile = await createMainFile(episodePath);
+				const qualityFiles = await createQualities(episodePath, cloudinaryEpisodeName);
+				for (const path of qualityFiles) {
+					const videoName = `${cloudinaryEpisodeName}_${path.name}`;
+					const cloudinaryPathToResolution = `${cloudinaryPathToEpisode}/${videoName}`;
+					const linkToDiffrentPath = await splitSegmentsAndUpload(
+						path.path,
+						videoName,
+						cloudinaryPathToResolution
+					);
+					await appendMainFile(mainFile, linkToDiffrentPath, path);
+				}
+				const result = await uploadToCloudinary(
+					mainFile,
+					cloudinaryPathToEpisode,
+					'main.m3u8',
+					'raw'
 				);
-				// Upload to Cloudinary in the specific folder
 				Movie.findOne({ _id: movieID }).then((movie) => {
 					if (movie) {
 						if (!episode) {
@@ -92,7 +253,7 @@ exports.createEpisode = (req, res, next) => {
 								_id: new mongoose.Types.ObjectId().toString(),
 								episodeName,
 								movie: movieID,
-								link: file.playback_url,
+								link: result,
 							});
 							newEpisode.save().then((updateEpisode) => {
 								return res.status(200).json({
@@ -117,7 +278,11 @@ exports.createEpisode = (req, res, next) => {
 					}
 				});
 			} catch (error) {
-				console.error('Error processing video:', error);
+				return res.status(500).json({
+					flag: 'error',
+					message: error.message,
+					data: null,
+				});
 			}
 		})
 		.catch((err) => {
@@ -152,3 +317,7 @@ exports.getTotalEpisodes = (req, res, next) => {
 			});
 		});
 };
+
+// exports.removeEpisode = (req, res, next) => {
+// 	const { }
+// }
