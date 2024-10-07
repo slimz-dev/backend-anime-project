@@ -4,7 +4,7 @@ const episodeSchema = mongoose.Schema({
 	episodeName: { type: String, required: true },
 	movie: { type: mongoose.Schema.Types.ObjectId, ref: 'Movie', required: true },
 	link: { type: String },
-	updateAt: { type: Date, default: Date.now() },
+	updateAt: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model('Episode', episodeSchema);

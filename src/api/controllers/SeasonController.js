@@ -119,3 +119,22 @@ exports.deleteSeason = (req, res, next) => {
 			});
 		});
 };
+
+exports.getSeason = (req, res, next) => {
+	const { movieID } = req.params;
+	Season.findOne({ 'list.link': movieID })
+		.then((season) => {
+			return res.status(200).json({
+				flag: 'success',
+				data: season,
+				message: 'Fetch season successfully',
+			});
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				data: null,
+				message: err.message,
+			});
+		});
+};

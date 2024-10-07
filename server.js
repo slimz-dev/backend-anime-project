@@ -25,6 +25,7 @@ const categoryRoutes = require('./src/api/routes/Category');
 const episodeRoutes = require('./src/api/routes/Episode');
 const seasonRoutes = require('./src/api/routes/Season');
 const levelRoutes = require('./src/api/routes/Level');
+const commentRoutes = require('./src/api/routes/Comment');
 // const io = new Server(server, {
 // 	cors: {
 // 		origin: process.env.FE_URL,
@@ -61,6 +62,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/episodes', episodeRoutes);
 app.use('/api/seasons', seasonRoutes);
 app.use('/api/levels', levelRoutes);
+app.use('/api/comments', commentRoutes);
 
 app.get('/', (req, res, next) => {
 	res.status(200);

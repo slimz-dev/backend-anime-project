@@ -158,7 +158,7 @@ function convertVideo(inputPath, outputPath, quality) {
 			.videoBitrate(quality.bitrate)
 			.audioCodec('copy')
 			.size(quality.resolution)
-			.outputOptions(['-crf 18']) // Resolution like 360p, 480p, 720p, 1080p
+			.outputOptions(['-crf 18'])
 			.on('progress', (progress) => {
 				console.log(`Processing: for ${quality.resolution} ${progress.frames} frames done`);
 			})
@@ -314,6 +314,25 @@ exports.getTotalEpisodes = (req, res, next) => {
 				error: {
 					message: err.message,
 				},
+			});
+		});
+};
+
+exports.getEpisodes = (req, res, next) => {
+	const { movieID } = req.params;
+	Episode.find({ movie: movieID })
+		.then((episodes) => {
+			return res.status(200).json({
+				flag: 'success',
+				message: 'Fetch episodes successfully',
+				data: episodes,
+			});
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				message: err.message,
+				data: null,
 			});
 		});
 };

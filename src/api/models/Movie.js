@@ -18,7 +18,7 @@ const movieSchema = mongoose.Schema({
 		timeEstimate: { type: Number },
 	},
 	rating: { totalUser: { type: Number, default: 0 }, totalStar: { type: Number, default: 0 } },
-	releasedDate: { type: Date, default: Date.now() },
+	releasedDate: { type: Date, default: Date.now },
 	isReleased: { type: Boolean, default: false },
 	watchTime: { type: Number, default: 0 },
 	isCompleted: { type: Boolean, default: false },

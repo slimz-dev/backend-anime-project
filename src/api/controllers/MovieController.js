@@ -1,7 +1,4 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const validator = require('validator');
 const Season = require('../models/Season');
 const Movie = require('../models/Movie');
 const cloudinary = require('../../utils/cloudinary');
@@ -60,6 +57,24 @@ async function uploadImagesToCloudinary(imageFiles, cloudinaryFolderPath) {
 	}
 	return imagesStorage;
 }
+
+exports.movie = (req, res, next) => {
+	const newMovie = new Movie({
+		...req.body,
+	});
+	newMovie
+		.save()
+		.then((movie) => {
+			return res.status(200).json({
+				data: movie,
+			});
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				message: err.message,
+			});
+		});
+};
 
 exports.createMovie = async (req, res, next) => {
 	const { seasonName, movieName } = req.body;

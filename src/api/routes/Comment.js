@@ -1,0 +1,11 @@
+const express = require('express');
+const router = express.Router();
+const Comment = require('../controllers/CommentController');
+const { upload } = require('../../../server');
+router.get('/', Comment.getTotalComments);
+router.get('/:movieID', Comment.getMovieComments);
+router.post('/:movieID', upload.any(), Comment.createComment);
+// router.post('/login', User.loginUser);
+router.delete('/', Comment.deleteComments);
+// router.patch('/:groupID', UserGroupController.changeGroup);
+module.exports = router;
