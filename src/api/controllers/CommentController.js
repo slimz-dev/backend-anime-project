@@ -239,38 +239,52 @@ exports.likeComment = (req, res, next) => {
 	Comment.findOne({ _id: commentID })
 		.then((comment) => {
 			if (comment) {
-				const userIndex = comment.findIndex((item) => {
-					return item === userID;
-				});
-				if (userIndex !== -1) {
-					comment.splice(userIndex, 1);
-					comment
-						.save()
-						.then((updatedComment) => {
-							return res.status(200).json({
-								flag: 'error',
-								message: 'Unlike comment successfully',
-								data: updatedComment,
+				User.findOne({ _id: userID })
+					.then((user) => {
+						if (user) {
+							const userIndex = comment.likeUsers.findIndex((item) => {
+								return item.toString() === userID;
 							});
-						})
-						.catch((err) => {
-							throw err;
-						});
-				} else {
-					comment.push(userID);
-					comment
-						.save()
-						.then((updatedComment) => {
-							return res.status(200).json({
+							if (userIndex !== -1) {
+								comment.likeUsers.splice(userIndex, 1);
+								comment
+									.save()
+									.then((updatedComment) => {
+										return res.status(200).json({
+											flag: 'error',
+											message: 'Unlike comment successfully',
+											data: updatedComment,
+										});
+									})
+									.catch((err) => {
+										throw err;
+									});
+							} else {
+								comment.likeUsers.push(userID);
+								comment
+									.save()
+									.then((updatedComment) => {
+										return res.status(200).json({
+											flag: 'error',
+											message: 'Like comment successfully',
+											data: updatedComment,
+										});
+									})
+									.catch((err) => {
+										throw err;
+									});
+							}
+						} else {
+							return res.status(404).json({
 								flag: 'error',
-								message: 'Like comment successfully',
-								data: updatedComment,
+								message: 'The user try to like not existed',
+								data: null,
 							});
-						})
-						.catch((err) => {
-							throw err;
-						});
-				}
+						}
+					})
+					.catch((err) => {
+						throw err;
+					});
 			} else {
 				return res.status(404).json({
 					flag: 'error',
@@ -278,6 +292,53 @@ exports.likeComment = (req, res, next) => {
 					data: null,
 				});
 			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				message: err.message,
+				data: null,
+			});
+		});
+};
+
+async function deleteRecursive(commentID) {
+	Comment.findOne({ _id: commentID })
+		.then(async (thisComment) => {
+			let nestedComments = [];
+			thisComment.commentsReply.forEach((reply) => {
+				nestedComments.push(reply);
+			});
+			await thisComment.deleteOne();
+			await Promise.all(
+				nestedComments.map((nestedComment) => {
+					return deleteRecursive(nestedComment);
+				})
+			);
+		})
+		.catch((err) => {
+			throw err;
+		});
+}
+exports.deleteComment = (req, res, next) => {
+	const { commentID } = req.body;
+	Comment.findOne({ commentsReply: { $in: [commentID] } })
+		.then(async (comment) => {
+			if (comment) {
+				const index = comment.commentsReply.findIndex(
+					(cmt) => cmt.toString() === commentID
+				);
+				comment.commentsReply.splice(index, 1);
+				comment.save().catch((err) => {
+					throw err;
+				});
+			}
+			await deleteRecursive(commentID);
+			return res.status(200).json({
+				flag: 'success',
+				message: 'Delete successfully',
+				data: null,
+			});
 		})
 		.catch((err) => {
 			return res.status(500).json({
