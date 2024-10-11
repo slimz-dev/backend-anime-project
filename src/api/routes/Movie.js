@@ -14,13 +14,13 @@ router.post(
 router.get('/', Movie.getTotalMovies);
 router.patch('/', Movie.patchAllMovies);
 
+router.get('/search', Movie.searchMovie);
 router.get('/update', Movie.getMoviesFromUpdate);
 router.get('/most-viewed', Movie.hotestMovie);
 router.get('/top-rated', Movie.topRatedMovies);
 router.get('/top-watched', Movie.topWatchedMovies);
 router.get('/upcoming', Movie.upcomingMovies);
 router.delete('/', Movie.deleteTotalMovies);
-// router.post('/login', User.loginUser);
 router.delete('/:movieID', Movie.deleteMovie);
 router.patch('/:movieID', Movie.patchMovie);
 router.get('/:movieID', Movie.getMovie);

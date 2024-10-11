@@ -209,6 +209,37 @@ exports.getTotalMovies = (req, res, next) => {
 		});
 };
 
+exports.searchMovie = (req, res, next) => {
+	const { query } = req.query;
+	const diacriticRegex = query
+		.replace(/a/g, '[aàáảãạâầấẩẫậăằắẳẵặ]') // Matches 'a' with various Vietnamese accents
+		.replace(/e/g, '[eèéẻẽẹêềếểễệ]') // Matches 'e' with accents
+		.replace(/i/g, '[iìíỉĩị]') // Matches 'i' with accents
+		.replace(/o/g, '[oòóỏõọôồốổỗộơờớởỡợ]') // Matches 'o' and 'ô', 'ơ' with accents
+		.replace(/u/g, '[uùúủũụưừứửữự]') // Matches 'u' and 'ư' with accents
+		.replace(/y/g, '[yỳýỷỹỵ]') // Matches 'y' with accents
+		.replace(/d/g, '[dđ]'); // Matches 'd' and 'đ'
+	const movieRegex = new RegExp(`^${diacriticRegex}`, 'i');
+	Movie.find({ $or: [{ movieName: movieRegex }, { otherName: movieRegex }] })
+		.then((movies) => {
+			return res.status(200).json({
+				flag: 'success',
+				message: 'Query successfully',
+				data: movies,
+				metadata: {
+					total: movies.length,
+				},
+			});
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				message: err.message,
+				data: null,
+			});
+		});
+};
+
 exports.getMovie = (req, res, next) => {
 	const { movieID } = req.params;
 	Movie.findOne({ _id: movieID })
