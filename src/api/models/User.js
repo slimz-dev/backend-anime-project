@@ -5,6 +5,8 @@ const userSchema = mongoose.Schema({
 	name: { type: String },
 	username: { type: String },
 	password: { type: String },
+	quote: { type: String },
+	dob: { type: Date },
 	avatar: {
 		type: String,
 		default: 'https://res.cloudinary.com/dwdjj1kvh/image/upload/v1726507535/user_bhhnje.png',
@@ -36,7 +38,6 @@ const userSchema = mongoose.Schema({
 			default: [],
 		},
 	},
-
 	watchTime: { type: Number, default: 0 },
 	balance: { type: Number, default: 0 },
 	power: { type: Number, default: 0 },

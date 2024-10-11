@@ -9,8 +9,6 @@ const server = http.createServer(app);
 const { Server } = require('socket.io');
 const bodyParser = require('body-parser');
 const mongoose = require('./src/config/db');
-const groupRoutes = require('./src/api/routes/UserGroup');
-const userRoutes = require('./src/api/routes/User');
 const storage = multer.diskStorage({
 	filename: function (req, file, cb) {
 		cb(null, file.originalname);
@@ -19,6 +17,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage, limits: { fileSize: 2 * 1024 * 1024 * 1024 } });
 exports.upload = upload;
+const groupRoutes = require('./src/api/routes/UserGroup');
+const userRoutes = require('./src/api/routes/User');
 const movieRoutes = require('./src/api/routes/Movie');
 const typeRoutes = require('./src/api/routes/Type');
 const categoryRoutes = require('./src/api/routes/Category');

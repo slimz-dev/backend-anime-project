@@ -9,7 +9,7 @@ module.exports = (req, res, next) => {
 				if (err instanceof jwt.TokenExpiredError) {
 					next();
 				} else {
-					return res.status(403).json({
+					return res.status(404).json({
 						flag: 'error',
 						data: null,
 						message: 'Forbidden access',

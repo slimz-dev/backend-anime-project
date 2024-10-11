@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
-
+const User = require('../models/User');
 module.exports = (req, res, next) => {
 	try {
 		if (req.userID) {
@@ -15,25 +15,42 @@ module.exports = (req, res, next) => {
 							data: null,
 							message: 'Refresh token expired',
 						});
+					} else {
+						throw err;
 					}
-					return res.status(403).json({
-						flag: 'error',
-						data: null,
-						message: 'Forbidden access, logout user',
-					});
+				} else {
+					User.findOne({
+						$and: [
+							{ _id: decoded.userID },
+							{ loginDevices: { $elemMatch: { refreshToken } } },
+						],
+					})
+						.then((user) => {
+							if (user) {
+								const accessToken = jwt.sign(
+									{
+										userID: decoded.userID,
+									},
+									process.env.ACCESS_TOKEN_SECRET,
+									{
+										expiresIn: '30s',
+									}
+								);
+								req.userID = decoded.userID;
+								req.accessToken = accessToken;
+								next();
+							} else {
+								return res.status(403).json({
+									flag: 'error',
+									message: 'This token has been blacklisted',
+									data: null,
+								});
+							}
+						})
+						.catch((err) => {
+							throw err;
+						});
 				}
-				const accessToken = jwt.sign(
-					{
-						userID: decoded.userID,
-					},
-					process.env.ACCESS_TOKEN_SECRET,
-					{
-						expiresIn: '30s',
-					}
-				);
-				req.userID = decoded.userID;
-				req.accessToken = accessToken;
-				next();
 			});
 		}
 	} catch {

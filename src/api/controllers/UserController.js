@@ -7,6 +7,7 @@ const UserGroup = require('../models/UserGroup');
 const Notification = require('../models/Notification');
 const Level = require('../models/Level');
 const Movie = require('../models/Movie');
+const cloudinary = require('../../utils/cloudinary');
 require('dotenv').config();
 
 exports.createUser = (req, res, next) => {
@@ -244,12 +245,44 @@ exports.loginUser = (req, res, next) => {
 			});
 		});
 };
-
-exports.changeUser = (req, res, next) => {
+async function uploadToCloudinary(imagePath, cloudinaryFolderPath, pID) {
+	return new Promise((resolve, reject) => {
+		cloudinary.uploader.upload(
+			imagePath,
+			{
+				public_id: pID,
+				folder: cloudinaryFolderPath,
+				overwrite: true,
+			},
+			(error, result) => {
+				if (error) {
+					reject(error); // Reject the promise with the error
+				} else {
+					console.log('Uploaded to cloudinary');
+					resolve(result.secure_url); // Resolve the promise with the URL
+				}
+			}
+		);
+	});
+}
+exports.changeUser = async (req, res, next) => {
 	const { userID } = req.params;
-	const changeData = req.body;
+	const { name, quote, phone, mail, dob } = req.body;
+	const changeData = {
+		name,
+		quote,
+		phone,
+		mail,
+		dob,
+	};
+
+	if (req.file) {
+		const cloudinaryFolderPath = `Kmovie/users/${userID}`;
+		const avatar = await uploadToCloudinary(req.file.path, cloudinaryFolderPath, 'avatar');
+		changeData.avatar = avatar;
+	}
 	User.findOneAndUpdate({ _id: userID }, changeData, { new: true })
-		.then((user) => {
+		.then(async (user) => {
 			if (user) {
 				return res.status(200).json({
 					flag: 'success',
@@ -352,7 +385,8 @@ exports.getUser = (req, res, next) => {
 
 exports.removeDevices = (req, res, next) => {
 	const userID = req.userID;
-	User.findOneAndUpdate({ _id: userID }, { loginDevices: [] }, { new: true })
+	const { deviceID } = req.body;
+	User.findOneAndUpdate({ _id: userID }, { $pull: { loginDevices: { deviceID } } }, { new: true })
 		.then((user) => {
 			if (user) {
 				return res.status(200).json({
