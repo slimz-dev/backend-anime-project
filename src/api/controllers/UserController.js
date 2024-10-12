@@ -87,7 +87,14 @@ exports.getTotalUser = (req, res, next) => {
 	User.find({})
 		.populate('role')
 		.populate('movieFollowed')
-		.populate({ path: 'movieWatched', populate: { path: 'watched', model: 'Episode' } })
+		.populate({
+			path: 'movieWatched',
+			populate: {
+				path: 'watched',
+				model: 'Episode',
+				populate: { path: 'movie', model: 'Movie' },
+			},
+		})
 		.populate({ path: 'level', model: Level })
 		.exec()
 		.then((users) => {
@@ -145,7 +152,14 @@ exports.deleteUser = (req, res, next) => {
 exports.loginUser = (req, res, next) => {
 	const { username, password, deviceID, deviceName } = req.body;
 	User.findOne({ username })
-		.populate({ path: 'movieWatched', populate: { path: 'watched', model: 'Episode' } })
+		.populate({
+			path: 'movieWatched',
+			populate: {
+				path: 'watched',
+				model: 'Episode',
+				populate: { path: 'movie', model: 'Movie' },
+			},
+		})
 		.populate('movieFollowed')
 		.populate('movieRated')
 		.populate({ path: 'level', model: Level })
@@ -339,7 +353,14 @@ exports.getUser = (req, res, next) => {
 	const accessToken = req.accessToken;
 	const { refreshToken } = req.body;
 	User.findOne({ _id: userID })
-		.populate({ path: 'movieWatched', populate: { path: 'watched', model: 'Episode' } })
+		.populate({
+			path: 'movieWatched',
+			populate: {
+				path: 'watched',
+				model: 'Episode',
+				populate: { path: 'movie', model: 'Movie' },
+			},
+		})
 		.populate('movieFollowed')
 		.populate('movieRated')
 		.populate({ path: 'level', model: Level })
@@ -452,14 +473,36 @@ exports.applyMovieHistory = (req, res, next) => {
 					await user
 						.save()
 						.then((updatedUser) => {
-							return res.status(200).json({
-								flag: 'success',
-								message: 'Updated user successfully',
-								data: updatedUser,
-								meta: {
-									accessToken,
-								},
-							});
+							Movie.findOne({ _id: movieID })
+								.then(async (movie) => {
+									if (movie) {
+										movie.watchTime += 1;
+										await movie
+											.save()
+											.then((updatedMovie) => {
+												return res.status(200).json({
+													flag: 'success',
+													message: 'Updated user successfully',
+													data: { updatedUser, updatedMovie },
+													meta: {
+														accessToken,
+													},
+												});
+											})
+											.catch((err) => {
+												throw err;
+											});
+									} else {
+										return res.status(404).json({
+											flag: 'error',
+											message: 'Movie not found',
+											data: null,
+										});
+									}
+								})
+								.catch((err) => {
+									throw err;
+								});
 						})
 						.catch((err) => {
 							throw err;

@@ -383,7 +383,7 @@ exports.getMoviesFromUpdate = (req, res, next) => {
 exports.topRatedMovies = (req, res, next) => {
 	Movie.find({})
 		.populate('categories')
-		.sort({ 'rating.totalStar': 1 })
+		.sort({ 'rating.totalStar': -1, watchTime: -1 })
 		.limit(10)
 		.exec()
 		.then((movies) => {
@@ -416,7 +416,7 @@ exports.topRatedMovies = (req, res, next) => {
 exports.topWatchedMovies = (req, res, next) => {
 	Movie.find({})
 		.populate('categories')
-		.sort({ watchTime: 1 })
+		.sort({ watchTime: -1 })
 		.limit(10)
 		.exec()
 		.then((movies) => {
@@ -528,7 +528,7 @@ exports.patchMovie = (req, res, next) => {
 
 exports.hotestMovie = (req, res, next) => {
 	Movie.find({})
-		.sort({ watchTime: 1 })
+		.sort({ watchTime: -1 })
 		.limit(1)
 		.populate('categories')
 		.exec()
