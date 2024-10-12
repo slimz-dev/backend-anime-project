@@ -7,6 +7,7 @@ const UserGroup = require('../models/UserGroup');
 const Notification = require('../models/Notification');
 const Level = require('../models/Level');
 const Movie = require('../models/Movie');
+const Episode = require('../models/Episode');
 const cloudinary = require('../../utils/cloudinary');
 require('dotenv').config();
 
@@ -86,7 +87,7 @@ exports.getTotalUser = (req, res, next) => {
 	User.find({})
 		.populate('role')
 		.populate('movieFollowed')
-		.populate('movieWatched')
+		.populate({ path: 'movieWatched', populate: { path: 'watched', model: 'Episode' } })
 		.populate({ path: 'level', model: Level })
 		.exec()
 		.then((users) => {
@@ -144,7 +145,7 @@ exports.deleteUser = (req, res, next) => {
 exports.loginUser = (req, res, next) => {
 	const { username, password, deviceID, deviceName } = req.body;
 	User.findOne({ username })
-		.populate('movieWatched')
+		.populate({ path: 'movieWatched', populate: { path: 'watched', model: 'Episode' } })
 		.populate('movieFollowed')
 		.populate('movieRated')
 		.populate({ path: 'level', model: Level })
@@ -338,7 +339,7 @@ exports.getUser = (req, res, next) => {
 	const accessToken = req.accessToken;
 	const { refreshToken } = req.body;
 	User.findOne({ _id: userID })
-		.populate('movieWatched')
+		.populate({ path: 'movieWatched', populate: { path: 'watched', model: 'Episode' } })
 		.populate('movieFollowed')
 		.populate('movieRated')
 		.populate({ path: 'level', model: Level })
@@ -384,28 +385,105 @@ exports.getUser = (req, res, next) => {
 };
 
 exports.removeDevices = (req, res, next) => {
-	const userID = req.userID;
+	const verifyID = req.userID;
+	const accessToken = req.accessToken;
+	const { userID } = req.params;
 	const { deviceID } = req.body;
-	User.findOneAndUpdate({ _id: userID }, { $pull: { loginDevices: { deviceID } } }, { new: true })
-		.then((user) => {
-			if (user) {
-				return res.status(200).json({
-					flag: 'success',
-					data: user,
-					message: 'Remove devices successfully',
+	if (userID.localeCompare(verifyID) === 0) {
+		User.findOneAndUpdate(
+			{ _id: userID },
+			{ $pull: { loginDevices: { deviceID } } },
+			{ new: true }
+		)
+			.then((user) => {
+				if (user) {
+					return res.status(200).json({
+						flag: 'success',
+						data: user,
+						meta: {
+							accessToken,
+						},
+						message: 'Remove devices successfully',
+					});
+				}
+				return res.status(404).json({
+					flag: 'error',
+					data: [],
+					message: 'User not found',
 				});
-			}
-			return res.status(404).json({
-				flag: 'error',
-				data: [],
-				message: 'User not found',
+			})
+			.catch((err) => {
+				return res.status(500).json({
+					flag: 'error',
+					data: null,
+					message: err.message,
+				});
 			});
-		})
-		.catch((err) => {
-			return res.status(500).json({
-				flag: 'error',
-				data: null,
-				message: err.message,
-			});
+	} else {
+		return res.status(404).json({
+			flag: 'error',
+			message: 'Token invalid',
+			data: null,
 		});
+	}
+};
+
+exports.applyMovieHistory = (req, res, next) => {
+	const verifyID = req.userID;
+	const { userID } = req.params;
+	const accessToken = req.accessToken;
+	if (verifyID.localeCompare(userID) === 0) {
+		const { currentTime, watchTime, episodeID, movieID } = req.body;
+		User.findOne({ _id: userID })
+			.populate({ path: 'movieWatched', populate: { path: 'watched', model: 'Episode' } })
+			.then(async (user) => {
+				if (user) {
+					const indexOfMovie = user.movieWatched.findIndex((item) => {
+						return item.watched.movie.toString().localeCompare(movieID) === 0;
+					});
+					if (indexOfMovie !== -1) {
+						user.movieWatched.splice(indexOfMovie, 1);
+					}
+					user.movieWatched.push({
+						currentTime,
+						watched: episodeID,
+					});
+					user.power += watchTime * 1000;
+					await user
+						.save()
+						.then((updatedUser) => {
+							return res.status(200).json({
+								flag: 'success',
+								message: 'Updated user successfully',
+								data: updatedUser,
+								meta: {
+									accessToken,
+								},
+							});
+						})
+						.catch((err) => {
+							throw err;
+						});
+				} else {
+					return res.status(404).json({
+						flag: 'error',
+						message: 'User not found',
+						data: null,
+					});
+				}
+			})
+			.catch((err) => {
+				return res.status(500).json({
+					flag: 'error',
+					message: err.message,
+					data: null,
+				});
+			});
+	} else {
+		return res.status(404).json({
+			flag: 'error',
+			message: 'Token invalid',
+			data: null,
+		});
+	}
 };

@@ -15,7 +15,12 @@ const userSchema = mongoose.Schema({
 	mail: { type: String, default: '' },
 	phone: { type: String, default: '' },
 	movieFollowed: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
-	movieWatched: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Episode' }],
+	movieWatched: [
+		{
+			currentTime: { type: Number },
+			watched: { type: mongoose.Schema.Types.ObjectId, ref: 'Movie' },
+		},
+	],
 	movieRated: {
 		fiveStars: {
 			type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }],
