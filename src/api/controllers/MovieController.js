@@ -182,6 +182,7 @@ exports.createMovie = async (req, res, next) => {
 
 exports.getTotalMovies = (req, res, next) => {
 	Movie.find({})
+		.populate('categories')
 		.then((movies) => {
 			if (movies.length !== 0) {
 				return res.status(200).json({
@@ -245,6 +246,7 @@ exports.getMovie = (req, res, next) => {
 	Movie.findOne({ _id: movieID })
 		.then((movie) => {
 			if (movie) {
+				console.log('fetched success ', movieID);
 				return res.status(200).json({
 					flag: 'success',
 					data: movie,

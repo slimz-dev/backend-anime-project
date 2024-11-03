@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const validator = require('validator');
+const User = require('../models/User');
 const Movie = require('../models/Movie');
 const Episode = require('../models/Episode');
 const cloudinary = require('../../utils/cloudinary');
@@ -25,13 +26,19 @@ function toLowerCaseNonAccentVietnamese(str) {
 	return str;
 }
 
-async function appendMainFile(filePath, link, videoConfig) {
+async function appendMainFile(filePath, link, videoConfig, vip) {
 	const content = `#EXT-X-STREAM-INF:BANDWIDTH=${videoConfig.bitrate.replace(
 		'k',
 		'000'
 	)},RESOLUTION=${videoConfig.resolution}\n${link}\n`;
 	try {
-		fs.appendFileSync(filePath, content);
+		if (!vip) {
+			if (videoConfig.name.localeCompare('1080p') !== 0) {
+				fs.appendFileSync(filePath, content);
+			}
+		} else {
+			fs.appendFileSync(filePath, content);
+		}
 		console.log('Content appended for main file successfully.');
 	} catch (err) {
 		throw err;
@@ -205,10 +212,10 @@ async function createQualities(inputFilePath, fileName) {
 	}
 }
 
-async function createMainFile(pathToMainFile) {
+async function createMainFile(pathToMainFile, name) {
 	try {
 		const dir = path.dirname(pathToMainFile);
-		const mainFilePath = path.join(dir, 'main.m3u8');
+		const mainFilePath = path.join(dir, name);
 		const content = `#EXTM3U\n#EXT-X-VERSION:3\n\n`;
 		await fs.promises.writeFile(mainFilePath, content, { flag: 'w' });
 		console.log('main file created');
@@ -228,22 +235,30 @@ exports.createEpisode = (req, res, next) => {
 	Episode.findOne({ $and: [{ movie: movieID, episodeName }] })
 		.then(async (episode) => {
 			try {
-				const mainFile = await createMainFile(episodePath);
+				const mainFile = await createMainFile(episodePath, 'main.m3u8');
+				const secondFile = await createMainFile(episodePath, 'main_novip.m3u8');
 				const qualityFiles = await createQualities(episodePath, cloudinaryEpisodeName);
-				for (const path of qualityFiles) {
-					const videoName = `${cloudinaryEpisodeName}_${path.name}`;
+				for (const quality of qualityFiles) {
+					const videoName = `${cloudinaryEpisodeName}_${quality.name}`;
 					const cloudinaryPathToResolution = `${cloudinaryPathToEpisode}/${videoName}`;
 					const linkToDiffrentPath = await splitSegmentsAndUpload(
-						path.path,
+						quality.path,
 						videoName,
 						cloudinaryPathToResolution
 					);
-					await appendMainFile(mainFile, linkToDiffrentPath, path);
+					await appendMainFile(mainFile, linkToDiffrentPath, quality, true);
+					await appendMainFile(secondFile, linkToDiffrentPath, quality, false);
 				}
-				const result = await uploadToCloudinary(
+				const vipLink = await uploadToCloudinary(
 					mainFile,
 					cloudinaryPathToEpisode,
 					'main.m3u8',
+					'raw'
+				);
+				const noVipLink = await uploadToCloudinary(
+					secondFile,
+					cloudinaryPathToEpisode,
+					'main_novip.m3u8',
 					'raw'
 				);
 				Movie.findOne({ _id: movieID }).then((movie) => {
@@ -253,7 +268,8 @@ exports.createEpisode = (req, res, next) => {
 								_id: new mongoose.Types.ObjectId().toString(),
 								episodeName,
 								movie: movieID,
-								link: result,
+								link: vipLink,
+								secondLink: noVipLink,
 							});
 							newEpisode.save().then((updateEpisode) => {
 								return res.status(200).json({
@@ -319,14 +335,56 @@ exports.getTotalEpisodes = (req, res, next) => {
 };
 
 exports.getEpisodes = (req, res, next) => {
+	const userID = req.userID;
+	const accessToken = req.accessToken;
 	const { movieID } = req.params;
 	Episode.find({ movie: movieID })
 		.then((episodes) => {
-			return res.status(200).json({
-				flag: 'success',
-				message: 'Fetch episodes successfully',
-				data: episodes,
-			});
+			User.findOne({ _id: userID })
+				.then((user) => {
+					if (user) {
+						const currentDate = new Date();
+						if (user.vipExpired > currentDate) {
+							const episodesCloned = episodes.map((episode) => {
+								const episodeCloned = episode.toObject();
+								delete episodeCloned.secondLink;
+								return episodeCloned;
+							});
+							return res.status(200).json({
+								flag: 'success',
+								message: 'Fetch episodes successfully',
+								data: episodesCloned,
+								meta: {
+									accessToken,
+								},
+							});
+						} else {
+							const episodesCloned = episodes.map((episode) => {
+								const episodeCloned = episode.toObject();
+								episodeCloned.link = episodeCloned.secondLink;
+								delete episodeCloned.secondLink;
+								return episodeCloned;
+							});
+							return res.status(200).json({
+								flag: 'success',
+								message: 'Fetch episodes successfully',
+								data: episodesCloned,
+								meta: {
+									accessToken,
+								},
+							});
+						}
+					} else {
+						return res.status(404).json({
+							flag: 'error',
+							message: 'User not found',
+							data: null,
+						});
+					}
+				})
+				.catch((err) => {
+					throw err;
+				});
 		})
 		.catch((err) => {
 			return res.status(500).json({

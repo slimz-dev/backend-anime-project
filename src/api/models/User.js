@@ -56,6 +56,7 @@ const userSchema = mongoose.Schema({
 		],
 		select: true,
 	},
+	vipExpired: { type: Date },
 });
 
 module.exports = mongoose.model('User', userSchema);

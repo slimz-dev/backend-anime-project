@@ -88,6 +88,31 @@ exports.getTotalUser = (req, res, next) => {
 		.populate('role')
 		.populate('movieFollowed')
 		.populate({
+			path: 'movieRated',
+			populate: [
+				{
+					path: 'fiveStars',
+					model: 'Movie',
+				},
+				{
+					path: 'fourStars',
+					model: 'Movie',
+				},
+				{
+					path: 'oneStar',
+					model: 'Movie',
+				},
+				{
+					path: 'threeStars',
+					model: 'Movie',
+				},
+				{
+					path: 'twoStars',
+					model: 'Movie',
+				},
+			],
+		})
+		.populate({
 			path: 'movieWatched',
 			populate: {
 				path: 'watched',
@@ -161,7 +186,31 @@ exports.loginUser = (req, res, next) => {
 			},
 		})
 		.populate('movieFollowed')
-		.populate('movieRated')
+		.populate({
+			path: 'movieRated',
+			populate: [
+				{
+					path: 'fiveStars',
+					model: 'Movie',
+				},
+				{
+					path: 'fourStars',
+					model: 'Movie',
+				},
+				{
+					path: 'oneStar',
+					model: 'Movie',
+				},
+				{
+					path: 'threeStars',
+					model: 'Movie',
+				},
+				{
+					path: 'twoStars',
+					model: 'Movie',
+				},
+			],
+		})
 		.populate({ path: 'level', model: Level })
 		.select('-role')
 		.exec()
@@ -183,7 +232,7 @@ exports.loginUser = (req, res, next) => {
 							},
 							process.env.ACCESS_TOKEN_SECRET,
 							{
-								expiresIn: '30s',
+								expiresIn: '5d',
 							}
 						);
 						const refreshToken = jwt.sign(
@@ -290,7 +339,6 @@ exports.changeUser = async (req, res, next) => {
 		mail,
 		dob,
 	};
-
 	if (req.file) {
 		const cloudinaryFolderPath = `Kmovie/users/${userID}`;
 		const avatar = await uploadToCloudinary(req.file.path, cloudinaryFolderPath, 'avatar');
@@ -362,7 +410,31 @@ exports.getUser = (req, res, next) => {
 			},
 		})
 		.populate('movieFollowed')
-		.populate('movieRated')
+		.populate({
+			path: 'movieRated',
+			populate: [
+				{
+					path: 'fiveStars',
+					model: 'Movie',
+				},
+				{
+					path: 'fourStars',
+					model: 'Movie',
+				},
+				{
+					path: 'oneStar',
+					model: 'Movie',
+				},
+				{
+					path: 'threeStars',
+					model: 'Movie',
+				},
+				{
+					path: 'twoStars',
+					model: 'Movie',
+				},
+			],
+		})
 		.populate({ path: 'level', model: Level })
 		.select('-role')
 		.select('-password')
@@ -455,12 +527,18 @@ exports.applyMovieHistory = (req, res, next) => {
 	const accessToken = req.accessToken;
 	if (verifyID.localeCompare(userID) === 0) {
 		const { currentTime, watchTime, episodeID, movieID } = req.body;
+		let parseMovieToID;
+		if (movieID._id) {
+			parseMovieToID = movieID._id;
+		} else {
+			parseMovieToID = movieID;
+		}
 		User.findOne({ _id: userID })
 			.populate({ path: 'movieWatched', populate: { path: 'watched', model: 'Episode' } })
 			.then(async (user) => {
 				if (user) {
 					const indexOfMovie = user.movieWatched.findIndex((item) => {
-						return item.watched.movie.toString().localeCompare(movieID) === 0;
+						return item.watched.movie.toString().localeCompare(parseMovieToID) === 0;
 					});
 					if (indexOfMovie !== -1) {
 						user.movieWatched.splice(indexOfMovie, 1);
@@ -470,10 +548,11 @@ exports.applyMovieHistory = (req, res, next) => {
 						watched: episodeID,
 					});
 					user.power += watchTime * 1000;
+
 					await user
 						.save()
 						.then((updatedUser) => {
-							Movie.findOne({ _id: movieID })
+							Movie.findOne({ _id: parseMovieToID })
 								.then(async (movie) => {
 									if (movie) {
 										movie.watchTime += 1;
@@ -529,4 +608,258 @@ exports.applyMovieHistory = (req, res, next) => {
 			data: null,
 		});
 	}
+};
+
+exports.followMovie = (req, res, next) => {
+	const userID = req.userID;
+	const accessToken = req.accessToken;
+	const { movieID } = req.body;
+	User.findOne({ _id: userID })
+		.then((user) => {
+			if (user) {
+				Movie.findOne({ _id: movieID })
+					.then(async (found) => {
+						if (found) {
+							const findIndex = user.movieFollowed.findIndex((movie) => {
+								return movie.toString() === movieID;
+							});
+							if (findIndex !== -1) {
+								user.movieFollowed.splice(findIndex, 1);
+								await user
+									.save()
+									.then((updatedUser) => {
+										return res.status(200).json({
+											flag: 'success',
+											message: 'Unfollow movie success',
+											data: updatedUser,
+											meta: {
+												accessToken,
+											},
+										});
+									})
+									.catch((err) => {
+										throw err;
+									});
+							} else {
+								user.movieFollowed.push(movieID);
+								await user
+									.save()
+									.then((updatedUser) => {
+										return res.status(200).json({
+											flag: 'success',
+											message: 'Follow movie success',
+											data: updatedUser,
+											meta: {
+												accessToken,
+											},
+										});
+									})
+									.catch((err) => {
+										throw err;
+									});
+							}
+						} else {
+							return res.status(404).json({
+								flag: 'error',
+								message: 'Movie not found',
+								data: null,
+							});
+						}
+					})
+					.catch((err) => {
+						throw err;
+					});
+			} else {
+				return res.status(404).json({
+					flag: 'error',
+					message: 'User not found',
+					data: null,
+				});
+			}
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				message: err.message,
+				data: null,
+			});
+		});
+};
+
+exports.rateMovie = (req, res, next) => {
+	const { movieID } = req.params;
+	const userID = req.userID;
+	const accessToken = req.accessToken;
+	const { stars } = req.body;
+	if (stars <= 5) {
+		User.findOne({ _id: userID })
+			.then((user) => {
+				if (user) {
+					let alreadyRated;
+					for (const movies of Object.values(user.movieRated)) {
+						alreadyRated = movies.find((mov) => mov.toString() === movieID);
+						if (alreadyRated) {
+							break;
+						}
+					}
+					if (!alreadyRated) {
+						Movie.findOne({ _id: movieID })
+							.then(async (movie) => {
+								if (movie) {
+									movie.rating.totalUser += 1;
+									movie.rating.totalStar += stars;
+									await movie
+										.save()
+										.then(async (updatedMovie) => {
+											switch (stars) {
+												case 1: {
+													user.movieRated.oneStar.push(movieID);
+													break;
+												}
+												case 2: {
+													user.movieRated.twoStars.push(movieID);
+													break;
+												}
+												case 3: {
+													user.movieRated.threeStars.push(movieID);
+													break;
+												}
+												case 4: {
+													user.movieRated.fourStars.push(movieID);
+													break;
+												}
+												default: {
+													user.movieRated.fiveStars.push(movieID);
+												}
+											}
+											await user
+												.save()
+												.then((updatedUser) => {
+													return res.status(200).json({
+														flag: 'success',
+														message: 'Rated was successfully',
+														data: { updatedMovie, updatedUser },
+														meta: {
+															accessToken,
+														},
+													});
+												})
+												.catch((err) => {
+													throw err;
+												});
+										})
+										.catch((err) => {
+											throw err;
+										});
+								} else {
+									return res.status(404).json({
+										flag: 'error',
+										message: 'Movie not found',
+										data: null,
+										meta: {
+											accessToken,
+										},
+									});
+								}
+							})
+							.catch((err) => {
+								throw err;
+							});
+					} else {
+						return res.status(403).json({
+							flag: 'error',
+							message: "You've already rated this movie",
+							data: null,
+							meta: {
+								accessToken,
+							},
+						});
+					}
+				} else {
+					return res.status(404).json({
+						flag: 'error',
+						message: 'User not found',
+						data: null,
+						meta: {
+							accessToken,
+						},
+					});
+				}
+			})
+			.catch((err) => {
+				return res.status(500).json({
+					flag: 'error',
+					message: err.message,
+					data: null,
+					meta: {
+						accessToken,
+					},
+				});
+			});
+	} else {
+		return res.status(403).json({
+			message: 'Invalid rate',
+			data: null,
+			flag: 'error',
+			meta: {
+				accessToken,
+			},
+		});
+	}
+};
+
+exports.topRanking = (req, res, next) => {
+	User.find({})
+		.populate('role')
+		.populate('movieFollowed')
+		.populate({
+			path: 'movieRated',
+			populate: [
+				{
+					path: 'fiveStars',
+					model: 'Movie',
+				},
+				{
+					path: 'fourStars',
+					model: 'Movie',
+				},
+				{
+					path: 'oneStar',
+					model: 'Movie',
+				},
+				{
+					path: 'threeStars',
+					model: 'Movie',
+				},
+				{
+					path: 'twoStars',
+					model: 'Movie',
+				},
+			],
+		})
+		.populate({
+			path: 'movieWatched',
+			populate: {
+				path: 'watched',
+				model: 'Episode',
+				populate: { path: 'movie', model: 'Movie' },
+			},
+		})
+		.populate({ path: 'level', model: Level })
+		.sort({ power: -1 })
+		.limit(10)
+		.exec()
+		.then((users) => {
+			return res.status(200).json({
+				data: users,
+				length: users.length,
+			});
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				error: {
+					message: err.message,
+				},
+			});
+		});
 };

@@ -5,12 +5,16 @@ const verifyToken = require('../middleware/tokenVerify');
 const refreshToken = require('../middleware/refreshToken');
 const { upload } = require('../../../server');
 router.get('/', User.getTotalUser);
+router.get('/top-rank', User.topRanking);
+
 router.patch('/', User.changeTotalUser);
 router.post('/register', User.createUser);
 router.post('/login', User.loginUser);
 router.post('/my-info', verifyToken, refreshToken, User.getUser);
 router.patch('/watched-movie/:userID', verifyToken, refreshToken, User.applyMovieHistory);
 router.patch('/remove-devices/:userID', verifyToken, refreshToken, User.removeDevices);
+router.post('/follow-movie', verifyToken, refreshToken, User.followMovie);
+router.post('/rate-movie/:movieID', verifyToken, refreshToken, User.rateMovie);
 router.delete('/:userID', User.deleteUser);
 router.patch('/:userID', upload.single('avatar'), verifyToken, refreshToken, User.changeUser);
 module.exports = router;
