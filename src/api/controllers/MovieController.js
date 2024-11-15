@@ -244,6 +244,8 @@ exports.searchMovie = (req, res, next) => {
 exports.getMovie = (req, res, next) => {
 	const { movieID } = req.params;
 	Movie.findOne({ _id: movieID })
+		.populate('categories')
+		.populate('type')
 		.then((movie) => {
 			if (movie) {
 				console.log('fetched success ', movieID);
