@@ -181,6 +181,7 @@ exports.createMovie = async (req, res, next) => {
 };
 
 exports.getTotalMovies = (req, res, next) => {
+	const accessToken = req.accessToken;
 	Movie.find({})
 		.populate('categories')
 		.then((movies) => {

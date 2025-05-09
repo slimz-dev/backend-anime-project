@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<!-- Include Hls.js library from CDN -->
+		<script src="https://cdn.jsdelivr.net/npm/hls.js@~1/dist/hls.min.js"></script>
+
+		<!-- Import map for P2P Media Loader modules -->
+		<script type="importmap">
+			{
+				"imports": {
+					"p2p-media-loader-core": "https://cdn.jsdelivr.net/npm/p2p-media-loader-core@^2/dist/p2p-media-loader-core.es.min.js",
+					"p2p-media-loader-hlsjs": "https://cdn.jsdelivr.net/npm/p2p-media-loader-hlsjs@^2/dist/p2p-media-loader-hlsjs.es.min.js"
+				}
+			}
+		</script>
+
+		<!-- Include Vidstack player stylesheets -->
+		<link rel="stylesheet" href="https://cdn.vidstack.io/player/theme.css" />
+		<link rel="stylesheet" href="https://cdn.vidstack.io/player/video.css" />
+
+		<!-- Module script to initialize Vidstack player with P2P Media Loader -->
+		<script type="module">
+			// Include Vidstack player library from CDN
+			import { VidstackPlayer, VidstackPlayerLayout } from 'https://cdn.vidstack.io/player';
+
+			// Check if the browser supports import maps and Hls.js
+			const isP2PSupported = HTMLScriptElement.supports('importmap') && Hls.isSupported();
+
+			let HlsWithP2P;
+			if (isP2PSupported) {
+				// Inject P2P capabilities into Hls.js
+				const { HlsJsP2PEngine } = await import('p2p-media-loader-hlsjs');
+				HlsWithP2P = HlsJsP2PEngine.injectMixin(window.Hls);
+			}
+
+			const player = await VidstackPlayer.create({
+				target: '#player',
+				src: 'https://res.cloudinary.com/dwdjj1kvh/raw/upload/v1731820366/Kmovie/movies/tien_nghich/tien_nghich_episode_1/main_novip.m3u8',
+				playsInline: true,
+				layout: new VidstackPlayerLayout(),
+			});
+
+			player.addEventListener('provider-change', (event) => {
+				const provider = event.detail;
+
+				// Check if the provider is HLS
+				if (provider?.type === 'hls') {
+					provider.library = HlsWithP2P;
+
+					provider.config = {
+						p2p: {
+							core: {
+								swarmId: 'Optional custom swarm ID for stream',
+								// other P2P engine config parameters go here
+							},
+							onHlsJsCreated: (hls) => {
+								console.log((hls.p2pEngine.debug.enabled = true));
+
+								hls.p2pEngine.addEventListener('onPeerConnect', (params) => {
+									console.log('Peer connected:', params.peerId);
+								});
+								hls.p2pEngine.addEventListener('onSegmentLoaded', (details) => {
+									console.log('Segment Loaded:', details.downloadSource);
+								});
+								// Subscribe to P2P engine and Hls.js events here
+							},
+						},
+					};
+				}
+			});
+		</script>
+	</head>
+
+	<body>
+		<div style="width: 800px">
+			<div id="player"></div>
+		</div>
+	</body>
+</html>

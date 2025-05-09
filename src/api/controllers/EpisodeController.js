@@ -337,6 +337,7 @@ exports.getTotalEpisodes = (req, res, next) => {
 exports.getEpisodes = (req, res, next) => {
 	const userID = req.userID;
 	const accessToken = req.accessToken;
+	console.log(req.body);
 	const { movieID } = req.params;
 	Episode.find({ movie: movieID })
 		.then((episodes) => {
@@ -385,6 +386,26 @@ exports.getEpisodes = (req, res, next) => {
 				.catch((err) => {
 					throw err;
 				});
+		})
+		.catch((err) => {
+			return res.status(500).json({
+				flag: 'error',
+				message: err.message,
+				data: null,
+			});
+		});
+};
+
+exports.getEpisodesFromManager = (req, res, next) => {
+	const { movieID } = req.params;
+	Episode.find({ movie: movieID })
+		.populate('movie')
+		.then((episodes) => {
+			return res.status(200).json({
+				flag: 'success',
+				message: 'Fetch episodes successfully',
+				data: episodes,
+			});
 		})
 		.catch((err) => {
 			return res.status(500).json({

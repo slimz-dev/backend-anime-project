@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const app = express();
+const path = require('path');
 const http = require('http');
 const multer = require('multer');
 const server = http.createServer(app);
@@ -8,6 +9,7 @@ const { Server } = require('socket.io');
 const middlewareConfig = require('./src/config/middleware/middleware');
 const mongoose = require('./src/config/db');
 
+app.set('trust proxy', 1);
 const storage = multer.diskStorage({
 	filename: function (req, file, cb) {
 		cb(null, file.originalname);
@@ -36,6 +38,7 @@ app.get('/', (req, res, next) => {
 	});
 	next();
 });
+app.use(express.static(path.join(__dirname, 'public')));
 io.on('connection', socketHandler);
 server.listen(process.env.PORT || 3001, () => {
 	console.log(`Example app listening on port ${process.env.PORT || 3001}`);

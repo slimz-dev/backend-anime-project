@@ -215,7 +215,7 @@ exports.loginUser = (req, res, next) => {
 		.select('-role')
 		.exec()
 		.then((user) => {
-			console.log(JSON.stringify(user.level, 0, 2));
+			// console.log(JSON.stringify(user.level, 0, 2));
 			if (user && username && password) {
 				bcrypt.compare(password, user.password, async (err, result) => {
 					if (err) {
@@ -232,7 +232,7 @@ exports.loginUser = (req, res, next) => {
 							},
 							process.env.ACCESS_TOKEN_SECRET,
 							{
-								expiresIn: '5d',
+								expiresIn: '1d',
 							}
 						);
 						const refreshToken = jwt.sign(
@@ -264,6 +264,7 @@ exports.loginUser = (req, res, next) => {
 						const data = user.toJSON();
 						delete data.loginDevices;
 						delete data.password;
+						maskSensitiveData(data, ['mail', 'phone']);
 						return res.status(200).json({
 							flag: 'success',
 							data,
@@ -443,8 +444,9 @@ exports.getUser = (req, res, next) => {
 			const hasDevice = user.loginDevices.find((device) => {
 				return device.refreshToken === refreshToken;
 			});
-			const data = user.toJSON();
+			let data = user.toJSON();
 			delete data.loginDevices;
+			maskSensitiveData(data, ['mail', 'phone']);
 			if (user && hasDevice) {
 				return res.status(200).json({
 					flag: 'success',
@@ -862,4 +864,31 @@ exports.topRanking = (req, res, next) => {
 				},
 			});
 		});
+};
+
+const maskValue = (value, propName) => {
+	console.log(value);
+	switch (propName) {
+		case 'mail':
+			return value.replace(
+				/^(.)[^@]*/g,
+				'$1'.concat('*'.repeat(value.slice(1).indexOf('@')))
+			);
+		case 'phone':
+			return value.replace(/^[0-9]{7}/, '*******');
+		default:
+			console.log('error masking');
+			return value;
+	}
+};
+
+// Recursive masking function
+const maskSensitiveData = (data, fieldsToMask) => {
+	Object.keys(data).forEach((key) => {
+		if (fieldsToMask.includes(key)) {
+			data[key] = maskValue(data[key], key);
+			console.log('this is key', key);
+			console.log('this is data', data[key]);
+		}
+	});
 };
