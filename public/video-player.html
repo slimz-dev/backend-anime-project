@@ -32,10 +32,11 @@
 				const { HlsJsP2PEngine } = await import('p2p-media-loader-hlsjs');
 				HlsWithP2P = HlsJsP2PEngine.injectMixin(window.Hls);
 			}
-
+			const query = new URLSearchParams(window.location.search);
+			const src = query.get('src');
 			const player = await VidstackPlayer.create({
 				target: '#player',
-				src: 'https://res.cloudinary.com/dwdjj1kvh/raw/upload/v1731820366/Kmovie/movies/tien_nghich/tien_nghich_episode_1/main_novip.m3u8',
+				src: src,
 				playsInline: true,
 				layout: new VidstackPlayerLayout(),
 			});
